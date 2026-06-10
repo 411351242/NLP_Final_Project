@@ -154,12 +154,7 @@ metadata = load_metadata()
 # ================= SIDEBAR =================
 st.sidebar.title("💼 智慧庫配置與狀態")
 
-# Toggle architecture diagram
-if "show_architecture" not in st.session_state:
-    st.session_state.show_architecture = False
-
-if st.sidebar.button("🗺️ 查看系統架構與 RAG 流程圖", use_container_width=True):
-    st.session_state.show_architecture = not st.session_state.show_architecture
+# Sidebar Configuration
 
 st.sidebar.subheader("系統狀態")
 st.sidebar.markdown(f"**📚 總貼文數（已過濾語系）**: `{metadata.get('total_posts', 0)}` 篇")
@@ -232,7 +227,7 @@ st.markdown("""
 """)
 
 # Render system architecture if toggled
-if st.session_state.show_architecture:
+with st.expander("🗺️ 專案系統架構與 RAG 雙階段資料流 (點擊展開/收合)", expanded=True):
     st.info("💡 **專案系統架構與代碼組織**：以下展示了本專案整個目錄結構、資料管線流程，以及 RAG 雙階段檢索的底層運作原理。")
     
     # Create beautiful tabs
