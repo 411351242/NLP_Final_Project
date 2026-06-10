@@ -75,21 +75,32 @@ st.sidebar.markdown(f"**🕒 知識庫更新時間**: `{metadata.get('last_updat
 
 st.sidebar.divider()
 
-# Trigger Pipeline Refresh
+# Trigger Pipeline Refresh (with Admin Password protection to prevent public access of scraper)
 st.sidebar.subheader("知識庫更新")
-if st.sidebar.button("🔄 一鍵爬取並更新知識庫", use_container_width=True):
-    with st.spinner("正在執行更新管線 (update_pipeline)... 包含爬取、清洗與重建索引..."):
-        try:
-            # Execute pipeline script using sys.executable to ensure virtualenv context
-            result = subprocess.run([sys.executable, "update_pipeline.py"], capture_output=True, text=True)
-            if result.returncode == 0:
-                st.sidebar.success("更新成功！")
-                st.cache_resource.clear()  # Clear Streamlit cache to load new indexer
-                st.rerun()
-            else:
-                st.sidebar.error(f"更新失敗！\nError: {result.stderr}")
-        except Exception as e:
-            st.sidebar.error(f"執行出錯: {str(e)}")
+admin_password = st.sidebar.text_input("🔒 管理員密碼 (更新語料庫)", type="password", help="為防範爬蟲憑證或 Cookie 洩漏，僅限管理員輸入密碼後方能手動觸發資料更新。")
+
+# Load password from environment variable (.env) or Streamlit Secrets
+expected_password = os.getenv("ADMIN_PASSWORD") or (st.secrets.get("ADMIN_PASSWORD") if "ADMIN_PASSWORD" in st.secrets else None)
+
+if expected_password and admin_password == expected_password:
+    st.sidebar.success("管理員身份驗證成功！")
+    if st.sidebar.button("🔄 一鍵爬取並更新知識庫", use_container_width=True):
+        with st.spinner("正在執行更新管線 (update_pipeline)... 包含爬取、清洗與重建索引..."):
+            try:
+                # Execute pipeline script using sys.executable to ensure virtualenv context
+                result = subprocess.run([sys.executable, "update_pipeline.py"], capture_output=True, text=True)
+                if result.returncode == 0:
+                    st.sidebar.success("更新成功！")
+                    st.cache_resource.clear()  # Clear Streamlit cache to load new indexer
+                    st.rerun()
+                else:
+                    st.sidebar.error(f"更新失敗！\nError: {result.stderr}")
+            except Exception as e:
+                st.sidebar.error(f"執行出錯: {str(e)}")
+elif admin_password:
+    st.sidebar.error("密碼錯誤，無法解鎖更新功能。")
+else:
+    st.sidebar.info("請輸入管理員密碼以啟用更新功能。")
 
 st.sidebar.divider()
 
