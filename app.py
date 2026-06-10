@@ -4,7 +4,6 @@ import pickle
 import json
 import subprocess
 import sys
-import textwrap
 from dotenv import load_dotenv
 from rag_engine import TextCleaner, VectorIndexer, CrossEncoderReranker, GeminiGenerator
 
@@ -154,7 +153,12 @@ metadata = load_metadata()
 # ================= SIDEBAR =================
 st.sidebar.title("💼 智慧庫配置與狀態")
 
-# Sidebar Configuration
+# Toggle architecture diagram
+if "show_architecture" not in st.session_state:
+    st.session_state.show_architecture = False
+
+if st.sidebar.button("🗺️ 查看系統架構與 RAG 流程圖", use_container_width=True):
+    st.session_state.show_architecture = not st.session_state.show_architecture
 
 st.sidebar.subheader("系統狀態")
 st.sidebar.markdown(f"**📚 總貼文數（已過濾語系）**: `{metadata.get('total_posts', 0)}` 篇")
@@ -227,7 +231,7 @@ st.markdown("""
 """)
 
 # Render system architecture if toggled
-with st.expander("🗺️ 專案系統架構與 RAG 雙階段資料流 (點擊展開/收合)", expanded=True):
+if st.session_state.show_architecture:
     st.info("💡 **專案系統架構與代碼組織**：以下展示了本專案整個目錄結構、資料管線流程，以及 RAG 雙階段檢索的底層運作原理。")
     
     # Create beautiful tabs
@@ -239,7 +243,7 @@ with st.expander("🗺️ 專案系統架構與 RAG 雙階段資料流 (點擊�
     
     with tab_struct:
         # We will render the beautiful card with file categories
-        st.markdown(textwrap.dedent("""
+        st.markdown("""
         <div class="arch-card">
             <div class="arch-header">
                 <span>📁 FinalProject 專案完整目錄結構</span>
@@ -377,13 +381,13 @@ with st.expander("🗺️ 專案系統架構與 RAG 雙階段資料流 (點擊�
                 <div class="file-desc">專案於 Streamlit Cloud 部署時所需之 Python 套件依賴清單</div>
             </div>
         </div>
-        """), unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
         
     with tab_pipe:
         st.markdown("### 🔄 資料管線流程圖 (Data Pipeline Flowchart)")
         st.markdown("以下為專案的自動化更新管線運作流程，說明新爬取的 Threads 貼文如何一步步被清洗、對話重組並存入向量索引：")
         
-        st.markdown(textwrap.dedent("""
+        st.markdown("""
         ```mermaid
         graph TD
             %% Define styles
@@ -409,21 +413,21 @@ with st.expander("🗺️ 專案系統架構與 RAG 雙階段資料流 (點擊�
             class B,D,F,H,I data;
             class G coord;
         ```
-        """))
+        """)
         
-        st.markdown(textwrap.dedent("""
+        st.markdown("""
         #### ⚙️ 更新管線階段說明：
         1. **增量資料獲取**：`custom_threads_scraper.py` 模擬向 Threads API/網頁端拉取最新發表的貼文數據。
         2. **去重與追加**：`step2_extract_posts.py` 比對現有 `threads_posts.csv` 中的發文 ID，只將全新發布的貼文增量追加進去，防止重複檢索。
         3. **對話鏈重組**：`merge_posts.py` 根據 `thread_id` 將多篇串文拼合在一起，形成完整的上下文（Context），避免語意切碎。
         4. **自動化清洗與向量化**：`update_pipeline.py` 一鍵調用上述流程，隨後讀取數據，過濾無效英文或亂碼，呼叫 Embedding 模型重算特徵並儲存至輕量索引中。
-        """))
+        """)
 
     with tab_rag:
         st.markdown("### 🧠 雙階段高精準檢索與安全生成流程 (Dual-Stage Retrieval)")
         st.markdown("以下為系統在接收到使用者輸入提問後的 RAG 核心處理流程：")
         
-        st.markdown(textwrap.dedent("""
+        st.markdown("""
         ```mermaid
         graph TD
             classDef query fill:#2980b9,stroke:#3498db,stroke-width:2px,color:#fff;
@@ -445,9 +449,9 @@ with st.expander("🗺️ 專案系統架構與 RAG 雙階段資料流 (點擊�
             class H security;
             class G,D model;
         ```
-        """))
+        """)
         
-        st.markdown(textwrap.dedent("""
+        st.markdown("""
         #### 🔍 檢索與生成優化機制：
         1. **第一階段（粗篩/召回）**: 
            * 使用 `paraphrase-multilingual-MiniLM-L12-v2` 輕量多語言模型，將使用者問題向量化，在本地 `embeddings_index.pkl` 中快速計算餘弦相似度，高效率地篩選出 **Top-10** 最相關的候選貼文。
@@ -457,7 +461,7 @@ with st.expander("🗺️ 專案系統架構與 RAG 雙階段資料流 (點擊�
         3. **安全防範與頻率防護 (Rate Limiting & Safeguards)**:
            * **動態長度安全閥**：限制 Context 總長不超過 3000 字（約 2000 tokens），保障生成延遲（Latency）小於 8 秒。
            * **慢速限制模式（Slow Mode）**：內建 **RPM <= 10（每分鐘最高 10 次）** 與 **RPD <= 200（每日最高 200 次）** 安全保護，若發言頻率過高，系統將自動延遲等待，以防展示期間 API 金鑰被刷爆或停權。
-        """))
+        """)
 
 # Load indexer and reranker
 indexer = load_indexer(INDEX_PATH)
