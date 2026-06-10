@@ -86,8 +86,13 @@ st.sidebar.divider()
 st.sidebar.subheader("知識庫更新")
 admin_password = st.sidebar.text_input("🔒 管理員密碼 (更新語料庫)", type="password", help="為防範爬蟲憑證或 Cookie 洩漏，僅限管理員輸入密碼後方能手動觸發資料更新。")
 
-# Load password from environment variable (.env) or Streamlit Secrets
-expected_password = os.getenv("ADMIN_PASSWORD") or (st.secrets.get("ADMIN_PASSWORD") if "ADMIN_PASSWORD" in st.secrets else None)
+# Load password from environment variable (.env) or Streamlit Secrets safely
+expected_password = os.getenv("ADMIN_PASSWORD")
+if not expected_password:
+    try:
+        expected_password = st.secrets.get("ADMIN_PASSWORD")
+    except Exception:
+        expected_password = None
 
 if expected_password and admin_password == expected_password:
     st.sidebar.success("管理員身份驗證成功！")
