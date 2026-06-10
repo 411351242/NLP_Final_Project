@@ -1,0 +1,6 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+.ipynb_checkpoints/
+raw_scraped_posts.csv
