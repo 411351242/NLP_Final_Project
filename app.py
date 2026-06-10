@@ -68,6 +68,13 @@ metadata = load_metadata()
 # ================= SIDEBAR =================
 st.sidebar.title("💼 智慧庫配置與狀態")
 
+# Toggle architecture diagram
+if "show_architecture" not in st.session_state:
+    st.session_state.show_architecture = False
+
+if st.sidebar.button("🗺️ 查看系統架構與 RAG 流程圖", use_container_width=True):
+    st.session_state.show_architecture = not st.session_state.show_architecture
+
 st.sidebar.subheader("系統狀態")
 st.sidebar.markdown(f"**📚 總貼文數（已過濾語系）**: `{metadata.get('total_posts', 0)}` 篇")
 st.sidebar.markdown(f"**💬 總串文數（原始拆分）**: `{metadata.get('total_threads', 0)}` 條")
@@ -131,6 +138,51 @@ st.markdown("""
 1. **第一階段 (初篩/召回)**：使用 `paraphrase-multilingual-MiniLM-L12-v2` 檢索 Top-10 候選貼文。
 2. **第二階段 (精篩/重排序)**：使用 `CrossEncoder` 模型進行一對一交叉比對評分，精篩最相關的貼文送至 Gemini。
 3. **LLM 生成**：由 `Gemini 3.1` 嚴格遵循參考上下文，以原作者（前投行交易員）風格產出專業繁中分析。
+""")
+
+# Render system architecture if toggled
+if st.session_state.show_architecture:
+    st.info("💡 **系統架構與資料流**：您可以在此查看本專案從資料爬取、清洗、向量召回到重排序生成回答的完整生命週期流程。")
+    st.markdown("""
+### 🗺️ Threads RAG 智慧助理 v2.0 系統架構圖
+
+```text
+                     【原始資料集】
+                       /        \\
+                      /          \\
+    [流程 A: 合併貼文集]          [流程 B: 原始單篇串文集]
+    (combined_threads_posts.csv)  (threads_posts.csv)
+              |                             |
+              ▼                             ▼
+     [資料清洗管道: 刪除換行、過濾 unicode 亂碼 (如 ￼) 與平台尾綴雜訊]
+              |                             |
+              ▼                             ▼
+     [流程 A 向量索引建立]         [流程 B 向量索引建立]
+     (indexer_merged)              (indexer_chunked)
+              \\                             /
+               \\                           /
+              【使用者提問】: 提供相同問題進行雙軌檢索
+                 |                       |
+                 ▼                       ▼
+              RAG 檢索(Top-2)         RAG 檢索(Top-4)
+                 |                       |
+                 ▼                       ▼
+              Gemini 生成             Gemini 生成
+                 \\                       /
+                  \\                     /
+                  【雙流程側邊對比與性能分析】
+```
+
+#### 🔄 雙階段高精準檢索架構 (Two-stage Retrieval Pipeline)
+1. **第一階段（粗篩 - 召回）**: 
+   * 使用 `paraphrase-multilingual-MiniLM-L12-v2` 輕量多語言模型，將使用者問題向量化，在本地 `embeddings_index.pkl` 中計算餘弦相似度，篩選出 **Top-10** 最相關的候選貼文。
+2. **第二階段（精篩 - 重排序）**:
+   * 導入 `Cross-Encoder (ms-marco-MiniLM-L-6-v2)`。Cross-Encoder 會將使用者問題與 Top-10 候選文檔一對一交叉比對，計算更細緻的相關性分數，有效防範單純向量檢索被局部詞彙誤導。
+   * 最終只取評分最高的 **Top-K（預設 3）** 片段送往 Gemini 生成回答。
+3. **API 安全防護與慢速模式 (Rate Limiting & Safeguards)**:
+   * **動態長度限制**：字數安全閥限制 Context 總長不超過 3000 字（約 2000 tokens），保障 Latency 小於 8 秒。
+   * **慢速限制模式（Slow Mode）**：內建 **RPM <= 10（每分鐘最高 10 次）** 與 **RPD <= 200（每日最高 200 次）** 安全保護。若發言頻率過高，系統將自動延遲等待，以防展示期間 API 金鑰耗盡。
+---
 """)
 
 # Load indexer and reranker

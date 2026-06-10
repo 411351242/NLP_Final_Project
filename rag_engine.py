@@ -1,6 +1,9 @@
 import re
 import numpy as np
 import pandas as pd
+import os
+import json
+import time
 from sentence_transformers import SentenceTransformer, CrossEncoder
 from sklearn.metrics.pairwise import cosine_similarity
 import google.generativeai as genai
@@ -202,6 +205,49 @@ class CrossEncoderReranker:
         return reranked[:actual_top_k]
 
 
+class RateLimiter:
+    LIMIT_FILE = "rate_limit_log.json"
+
+    @classmethod
+    def check_and_log(cls, max_rpm=10, max_rpd=200):
+        now = time.time()
+        
+        # Load existing logs
+        logs = []
+        if os.path.exists(cls.LIMIT_FILE):
+            try:
+                with open(cls.LIMIT_FILE, "r") as f:
+                    logs = json.load(f)
+            except:
+                pass
+        
+        # Filter logs to keep only the last 24 hours (86400 seconds)
+        one_day_ago = now - 86400
+        logs = [t for t in logs if t > one_day_ago]
+        
+        # Check RPD (Requests Per Day)
+        if len(logs) >= max_rpd:
+            raise RuntimeError(f"已達到單日 API 限制上限（RPD <= {max_rpd}），請稍後再試。")
+            
+        # Check RPM (Requests Per Minute)
+        one_minute_ago = now - 60
+        rpm_logs = [t for t in logs if t > one_minute_ago]
+        if len(rpm_logs) >= max_rpm:
+            # Calculate sleep time (spacing)
+            oldest_rpm = rpm_logs[0]
+            sleep_time = 60 - (now - oldest_rpm)
+            if sleep_time > 0:
+                time.sleep(sleep_time)
+                now = time.time()  # Update current timestamp
+        
+        # Log the current request
+        logs.append(now)
+        try:
+            with open(cls.LIMIT_FILE, "w") as f:
+                json.dump(logs, f)
+        except:
+            pass
+
 class GeminiGenerator:
     def __init__(self, api_key=None, model_name='gemini-3.1-flash-lite-preview'):
         """
@@ -216,6 +262,12 @@ class GeminiGenerator:
         """
         Sends the query and retrieved context to Gemini and returns the generated response.
         """
+        # Apply Rate Limiter before calling the Gemini API
+        try:
+            RateLimiter.check_and_log(max_rpm=10, max_rpd=200)
+        except Exception as e:
+            return f"⚠️ **安全防護（速率限制觸發）**：{str(e)}\n\n在展示期間為確保 API 金鑰不爆炸，系統設有 RPM <= 10 與 RPD <= 200 的慢速模式保護機制。"
+
         # Formulate context text
         context_str = ""
         for i, res in enumerate(retrieved_docs):
