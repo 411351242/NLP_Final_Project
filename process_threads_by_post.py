@@ -7,6 +7,13 @@ import json
 from datetime import datetime
 from rag_engine import TextCleaner, VectorIndexer
 
+def clean_duplicates(df, text_column='文字內容', prefix_len=10):
+    temp_df = df.copy()
+    temp_df['_feature'] = temp_df[text_column].str.strip().str.slice(0, prefix_len)
+    is_duplicate = temp_df.duplicated(subset=['_feature'], keep='first')
+    cleaned_df = temp_df[~is_duplicate].drop(columns=['_feature']).reset_index(drop=True)
+    return cleaned_df
+
 def process_csv_threads(csv_path, output_path):
     print(f"正在讀取 {csv_path}...")
     # 支援不同編碼的讀取
@@ -59,9 +66,13 @@ def process_csv_threads(csv_path, output_path):
     combined = df.groupby('貼文編號', sort=False)['文字內容_clean'].apply(lambda x: '\n'.join(x)).reset_index()
     combined.rename(columns={'文字內容_clean': '文字內容'}, inplace=True)
 
+    # 去除重複貼文 (依首 10 個字判斷)
+    print("正在去除重複貼文...")
+    combined = clean_duplicates(combined)
+
     # 匯出合併後的資料
     combined.to_csv(output_path, index=False, encoding='utf-8-sig')
-    print(f"合併完成，共 {len(combined)} 篇貼文。已存檔至 {output_path}")
+    print(f"合併與去重完成，共 {len(combined)} 篇貼文。已存檔至 {output_path}")
 
     # 執行語意清洗與重建向量索引
     print("正在執行語意清洗與重建向量索引...")
