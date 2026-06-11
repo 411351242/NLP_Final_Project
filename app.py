@@ -108,6 +108,35 @@ st.markdown("""
 3. **LLM 生成**：由 `Gemini` 嚴格遵循參考上下文，以原作者（前投行交易員）風格產出專業繁中分析。
 """)
 
+st.markdown("""
+<div style="background-color: #1e222b; border-radius: 10px; padding: 20px; border: 1px solid #3e4451; margin-bottom: 25px;">
+    <h4 style="color: #61afef; margin-top: 0; margin-bottom: 10px;">🎯 知識庫涵蓋核心主題（本助理可解答之領域）</h4>
+    <p style="font-size: 0.9rem; color: #abb2bf; margin-bottom: 15px;">基於對原作者 700 多篇高價值 Threads 貼文的非監督主題分群（BERTopic），本助理已載入以下領域之專業知識，您可以針對這些話題進行提問：</p>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px;">
+        <div style="background: #161a22; padding: 12px; border-radius: 8px; border-left: 4px solid #98c379;">
+            <strong style="color: #98c379; font-size: 0.95rem;">📈 金融估值與市場分析</strong><br>
+            <span style="font-size: 0.85rem; color: #abb2bf; line-height: 1.4;">探討資產估值邏輯、WACC、利率與匯率傳導、信用利差測試，以及川普關稅對美債與台積電 EPS 的地緣政治衝擊。</span>
+        </div>
+        <div style="background: #161a22; padding: 12px; border-radius: 8px; border-left: 4px solid #e5c07b;">
+            <strong style="color: #e5c07b; font-size: 0.95rem;">🛢️ 原物料交易與機構套利</strong><br>
+            <span style="font-size: 0.85rem; color: #abb2bf; line-height: 1.4;">解密原油近遠月價差與供需框架、汽油裂解價差套利實務，以及避險基金做空與 MicroStrategy (MSTR) 溢價等交易邏輯。</span>
+        </div>
+        <div style="background: #161a22; padding: 12px; border-radius: 8px; border-left: 4px solid #c678dd;">
+            <strong style="color: #c678dd; font-size: 0.95rem;">💰 理財翻身與退休配置</strong><br>
+            <span style="font-size: 0.85rem; color: #abb2bf; line-height: 1.4;">分析新鮮人月薪 30K 靠工作所得本金翻身的邏輯（反對窮人投機）、巴菲特保險浮存金模式，以及資產配置與退休規劃。</span>
+        </div>
+        <div style="background: #161a22; padding: 12px; border-radius: 8px; border-left: 4px solid #56b6c2;">
+            <strong style="color: #56b6c2; font-size: 0.95rem;">💼 職涯成長與人生決策</strong><br>
+            <span style="font-size: 0.85rem; color: #abb2bf; line-height: 1.4;">探討投行分析師轉換為 nobody 的自我探索、對普魯士流水線教育反思、職場隨機性，以及 coffee chat 轉化為商業資本的技術。</span>
+        </div>
+        <div style="background: #161a22; padding: 12px; border-radius: 8px; border-left: 4px solid #4b5263;">
+            <strong style="color: #abb2bf; font-size: 0.95rem;">🌏 跨國移居與社會觀察</strong><br>
+            <span style="font-size: 0.85rem; color: #abb2bf; line-height: 1.4;">比較澳洲（如 Monash 大學生活）、新加坡與台灣的生活、薪水與孩子成長環境，討論身在台灣的優勢與生活套利。</span>
+        </div>
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
 # ================= ARCHITECTURE PANEL =================
 # Helper: build a single file-row HTML string (no indentation issues)
 def _file_row(icon, name, badge, badge_color, border_color, desc):
