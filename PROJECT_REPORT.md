@@ -23,125 +23,72 @@
 
 | 問題 | 說明 |
 |---|---|
-| 🔍 資訊散落 | 數百篇貼文無法快速搜尋特定主題 |
-| 🤖 AI 容易亂答 | ChatGPT 等通用 AI 會「憑空捏造」不屬於作者的觀點 |
-| 🔗 串文切碎 | 作者的長文常分多則發佈，單篇閱讀容易斷章取義 |
-| 📅 資料會過時 | 作者持續發新文，手動更新非常耗時 |
+| 🔍 資訊散落 | �## 📦 三、模組一：資料管線
 
-### 解決方案
+**負責程式**：`step1_collect_links.py`、`step2_extract_posts.py`、`merge_posts.py`、`process_threads_by_post.py`
 
-打造一個**只根據作者真實貼文回答問題**的智慧助理。任何人都能用自然語言提問，系統自動找出最相關的貼文，以作者口吻整合出有根據的回答，並附上原始來源供驗證。
+這個模組的任務是：把作者在 Threads 上的貼文，從原始社群資料，整理成 AI 可以使用的乾淨對話鏈知識庫。整個流程共分四個步驟。
 
 ---
 
-## 🏗️ 二、整體架構概覽
+### 步驟 1：連結收集（`step1_collect_links.py`）
 
-本系統由三大模組組成，各自負責不同任務：
-
-```
-┌──────────────────────────────────────────────────────────────┐
-│  模組一：資料管線（收集、清洗、整理知識庫）                   │
-│  模組二：RAG 雙階段智慧檢索引擎（找出最相關的貼文）           │
-│  模組三：Streamlit 網頁介面（使用者與 AI 對話）               │
-└──────────────────────────────────────────────────────────────┘
-```
-
-以下逐一說明每個模組使用的工具與具體做法。
-
----
-
-## 📦 三、模組一：資料管線
-
-**負責程式**：`custom_threads_scraper.py`、`step2_extract_posts.py`、`merge_posts.py`、`update_pipeline.py`
-
-這個模組的任務是：把作者在 Threads 上的貼文，從原始社群資料，整理成 AI 可以使用的乾淨知識庫。整個流程共分四個步驟，全部由 `update_pipeline.py` 統一協調執行。
-
----
-
-### 步驟 1：爬取新貼文（`custom_threads_scraper.py`）
-
-**使用套件**：`pandas`（DataFrame 資料結構）
+**使用套件**：`playwright`（Playwright 瀏覽器自動化）、`pandas`
 
 **做了什麼**：
-- 呼叫爬蟲腳本，模擬從 Threads 平台抓取作者的最新貼文
-- 將抓取到的貼文（包含「貼文與串文編號」和「文字內容」欄位）存成 **`raw_scraped_posts.csv`**
-
-> 🔒 **安全說明**：真實環境下，登入所需的 Cookie 憑證**只存在管理員的本機電腦**，不會上傳至任何公開平台或版本控制系統。公開部署版的爬蟲使用模擬資料，確保憑證零外洩風險。
-
----
-
-### 步驟 2：去重與追加（`step2_extract_posts.py`）
-
-**使用套件**：`pandas`（`read_csv`、`concat`、`drop_duplicates`、`to_csv`）
-
-**做了什麼**：
-1. 用 `pandas.read_csv()` 分別讀取新抓的 `raw_scraped_posts.csv` 和現有的 `threads_posts.csv`
-2. 用 `pandas.concat()` 將兩份資料合併成一張大表
-3. 用 `pandas.DataFrame.drop_duplicates()` 以「貼文與串文編號」為依據去除重複資料（確保同一則貼文不會被收錄兩次）
-4. 用 `pandas.DataFrame.to_csv()` 將結果寫回 `threads_posts.csv`
-
-> 💡 **為什麼重要**：避免 AI 學到重複資料，影響回答的公正性與品質。
+- 載入 `cookies.json` 憑證以模擬登入狀態。
+- 自動化瀏覽器開啟作者首頁 `https://www.threads.net/@make_investment_easy`。
+- 漸進式向下滾動，即時收集所有匹配 `/post/` 格式的貼文連結。
+- 排除重複與無效連結，將收集到的 URL 寫入 **`threads_post_links.csv`**。
 
 ---
 
-### 步驟 3：串文對話鏈重組（`merge_posts.py`）
+### 步驟 2：貼文爬取（`step2_extract_posts.py`）
 
-**使用套件**：`pandas`（`read_csv`、`sort_values`、`groupby`、`to_csv`）、`re`（正規表達式）
+**使用套件**：`playwright`（Playwright 瀏覽器自動化）、`beautifulsoup4`、`pandas`
 
 **做了什麼**：
-
-作者的長文常分成多則連貫發佈（例如「貼文716_串1」、「貼文716_串2」...），如果單篇讀取，語意會被切碎。這個步驟的任務就是把同一主題的串文重新合體。
-
-1. 用 `pandas.read_csv()` 讀取 `threads_posts.csv`
-2. 用 `re` 正規表達式從欄位名稱（如 `貼文716_串2`）中**解析出貼文編號**和**串文順序**
-3. 用 `pandas.DataFrame.sort_values()` 按貼文編號與串文順序**排序**
-4. 用 `pandas.DataFrame.groupby()` 將同一貼文的所有串文**按順序合併**成一段完整文字
-5. 輸出為 `combined_threads_posts.csv`
-
-> 💡 **為什麼重要**：AI 讀到的是完整的思維鏈，而不是片段句子，回答品質大幅提升。
+1. 讀取步驟一產生的 `threads_post_links.csv`。
+2. 逐一巡覽貼文網頁，抓取主貼文與原作者的所有後續串文（排除其他使用者的回覆）。
+3. 使用 `clean_post_text` 進行初步 UI 噪訊清理（過濾作者名稱、按讚、分享、時間等元件文字）。
+4. 為了防止因意外中斷遺失進度，將爬取的貼文**分批（預設 50 篇一組）匯出為 `threads_posts-XX.csv`**。
 
 ---
 
-### 步驟 4：文字清洗與向量化建庫（`update_pipeline.py` + `rag_engine.py`）
+### 步驟 3：貼文合併（`merge_posts.py`）
 
-**使用套件**：
-- `pandas`（`read_csv` swap `dropna` / `apply`）
-- `re`（正規表達式，用於清洗規則）
-- `sentence_transformers`（`SentenceTransformer.encode()`）
-- `pickle`（`pickle.dump()`）
-- `json`（`json.dump()`）
-- `datetime`（`datetime.now().strftime()`）
+**使用套件**：`pandas`
 
 **做了什麼**：
+- 偵測資料夾內所有 `threads_posts-XX.csv` 分批檔案。
+- 將讀取到的 DataFrames 進行合併，並且進行內容去重（以貼文內容為關鍵字），輸出為完整的原始貼文檔案 **`threads_posts.csv`**。
 
-#### A. 文字清洗（`TextCleaner.clean_text()`）
+---
 
-用 `re` 正規表達式對每篇貼文逐條套用以下清洗規則：
+### 步驟 4：對話鏈重組與清洗（`process_threads_by_post.py`）
 
-| 清洗項目 | 說明 |
-|---|---|
-| 換行符號統一化 | 將 `\n`、`\r`、`/n` 等各種換行格式統一替換為空格 |
-| 移除 Unicode 亂碼 | 刪除 `\ufffc`（`￼`，Threads 平台的圖片佔位符殘碼）與零寬空格 |
-| 移除網址 | 以正規表達式比對 `https://`、`www.` 開頭的連結並刪除 |
-| 移除 Hashtag 與 @tag | 刪除 `#財經`、`@username` 等社群標記 |
-| 移除平台尾綴 | 刪除 Threads 自動附加的「Read more」、「(續)」等結尾噪訊 |
-| 中英文間距補齊 | 在中文字與英文字母之間自動補上空格，提升 AI 理解品質 |
-| 多餘空白壓縮 | 將連續多個空格縮減為一個空格 |
+**使用套件**：`pandas`、`re`（正規表達式）
+
+**做了什麼**：
+- 讀取合併後的 `threads_posts.csv`。
+- 使用正規表達式解析出「貼文編號」與「串文順序」，並依數值進行排序，確保語句邏輯連貫。
+- 清洗並移除貼文尾端的平台結尾噪訊（如「(續」、「續」等標記）。
+- 按主貼文 ID 進行 `groupby`，將同個對話主題的所有後續串文**按順序以換行符號連接**，重組為連貫的完整上下文，輸出為 **`combined_threads_posts.csv`**，作為知識庫的最終檢索來源。
+
+---
+
+### 📊 語意向量化與建庫（`VectorIndexer`）
+
+為了供 RAG 核心高速檢索，系統載入 `combined_threads_posts.csv` 並進行向量化：
+
+#### A. 文字清洗
+在向量化前，再度清除 Unicode 亂碼、網址、Hashtag、@Tag 等文字，並使用 `TextCleaner.clean_text` 進行中英文間距壓縮。
 
 #### B. 語意向量化（`VectorIndexer.fit()`）
+使用多語言預訓練模型 `paraphrase-multilingual-MiniLM-L12-v2`，將每篇重組後的對話鏈轉換為向量索引，代表其語意位置。此時 738 組向量會被當作檢索索引載入。
 
-使用 `sentence_transformers` 套件的 `SentenceTransformer` 類別，載入多語言預訓練模型 **`paraphrase-multilingual-MiniLM-L12-v2`**：
-
-- 呼叫 `SentenceTransformer.encode()` 將每篇貼文的文字內容**轉換成一組數字（向量）**
-- 向量代表這篇文章的「語意位置」，語意相近的文章，向量數值也會很接近
-- 這 738 組向量就是「知識庫的索引」，存入記憶體準備下一步儲存
-
-> 💡 **比喻**：就像圖書館為每本書製作索引卡，讓之後的查找更快速。
-
-#### C. 索引序列化與中繼資料儲存
-
-- 用 `pickle.dump()` 將向量索引（`VectorIndexer` 物件）序列化存成 **`embeddings_index.pkl`**（僅 1.81 MB，已透過自訂 `__getstate__` 排除 PyTorch 模型權重，比原始的 459 MB 小 **250 倍**）
-- 用 `json.dump()` 記錄本次更新的時間戳記與統計數字，存成 **`pipeline_metadata.json`**，供網頁介面的「系統狀態」欄位即時顯示
+#### C. 索引序列化存檔
+將向量索引物件序列化儲存成 **`embeddings_index.pkl`**（僅 1.81 MB，已透過自訂排除 PyTorch 模型權重），並寫入統計資料至 **`pipeline_metadata.json`**，供網頁介面即時顯示。
 
 ---
 
@@ -317,15 +264,15 @@
 |---|---|---|---|
 | `app.py` | Python | 網頁介面主程式 | `streamlit` |
 | `rag_engine.py` | Python | RAG 核心引擎（清洗 / 向量 / 重排序 / 限速）| `sentence_transformers`、`sklearn`、`google.generativeai` |
-| `update_pipeline.py` | Python | 自動更新管線協調器 | `pandas`、`subprocess`、`pickle`、`json` |
-| `custom_threads_scraper.py` | Python | 貼文爬蟲（模擬）| `pandas` |
-| `step2_extract_posts.py` | Python | 去重與增量追加 | `pandas` |
-| `merge_posts.py` | Python | 串文對話鏈重組 | `pandas`、`re` |
-| `combined_threads_posts.csv` | 資料 | 最終整併知識庫（738 篇）| — |
-| `threads_posts.csv` | 資料 | 原始單篇貼文集（1693 串）| — |
+| `step1_collect_links.py` | Python | 貼文連結收集腳本 | `playwright`、`pandas` |
+| `step2_extract_posts.py` | Python | 貼文內容爬取腳本 | `playwright`、`beautifulsoup4`、`pandas` |
+| `merge_posts.py` | Python | 貼文初步整併與去重 | `pandas` |
+| `process_threads_by_post.py` | Python | 串文對話鏈重組與清洗 | `pandas`、`re` |
+| `combined_threads_posts.csv` | 資料 | 最終整併對話鏈知識庫（738 篇）| — |
+| `threads_posts.csv` | 資料 | 原始單篇貼文集（1693 條）| — |
 | `embeddings_index.pkl` | 資料 | 向量索引序列化檔 | `pickle` |
-| `pipeline_metadata.json` | 資料 | 管線執行狀態與統計 | `json` |
-| `requirements.txt` | 配置 | Streamlit Cloud 部署套件清單 | — |
+| `pipeline_metadata.json` | 資料 | 知識庫狀態與統計中繼資料 | `json` |
+| `requirements.txt` | 配置 | Streamlit Cloud 部署依賴套件 | — |
 | `PRD.md` | 文件 | 產品需求規格文件 | — |
 | `preprocessing_recommendations.md` | 文件 | 資料前處理優化建議書 | — |
 
@@ -337,7 +284,7 @@
 |---|---|---|
 | 操作方式 | 需執行 Python 程式碼 | 瀏覽器直接聊天 |
 | 部署方式 | 本機執行 | Streamlit Cloud 公開部署 |
-| 知識庫更新 | 手動執行多個腳本 | 側邊欄一鍵更新 |
+| 知識庫更新 | 手動執行多個腳本 | 本機順序執行取得資料腳本 |
 | 檢索架構 | 單階段向量搜尋 | 雙階段（召回 + Cross-Encoder 重排序）|
 | Token 防護 | 無 | 動態截斷（≤ 3000 字）|
 | API 防護 | 無 | RPM ≤ 10、RPD ≤ 200 限速 |

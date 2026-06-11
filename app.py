@@ -79,39 +79,6 @@ st.sidebar.markdown(f"**🕒 知識庫更新時間**: `{metadata.get('last_updat
 
 st.sidebar.divider()
 
-# Trigger Pipeline Refresh (with Admin Password protection to prevent public access of scraper)
-st.sidebar.subheader("知識庫更新")
-admin_password = st.sidebar.text_input("🔒 管理員密碼 (更新語料庫)", type="password", help="為防範爬蟲憑證或 Cookie 洩漏，僅限管理員輸入密碼後方能手動觸發資料更新。")
-
-# Load password from environment variable (.env) or Streamlit Secrets safely
-expected_password = os.getenv("ADMIN_PASSWORD")
-if not expected_password:
-    try:
-        expected_password = st.secrets.get("ADMIN_PASSWORD")
-    except Exception:
-        expected_password = None
-
-if expected_password and admin_password == expected_password:
-    st.sidebar.success("管理員身份驗證成功！")
-    if st.sidebar.button("🔄 一鍵爬取並更新知識庫", use_container_width=True):
-        with st.spinner("正在執行更新管線 (update_pipeline)... 包含爬取、清洗與重建索引..."):
-            try:
-                result = subprocess.run([sys.executable, "update_pipeline.py"], capture_output=True, text=True)
-                if result.returncode == 0:
-                    st.sidebar.success("更新成功！")
-                    st.cache_resource.clear()
-                    st.rerun()
-                else:
-                    st.sidebar.error(f"更新失敗！\nError: {result.stderr}")
-            except Exception as e:
-                st.sidebar.error(f"執行出錯: {str(e)}")
-elif admin_password:
-    st.sidebar.error("密碼錯誤，無法解鎖更新功能。")
-else:
-    st.sidebar.info("請輸入管理員密碼以啟用更新功能。")
-
-st.sidebar.divider()
-
 # Hyperparameter Controls
 st.sidebar.subheader("檢索與生成參數")
 temperature = st.sidebar.slider("LLM 溫度 (Temperature)", min_value=0.0, max_value=1.0, value=0.2, step=0.05,
@@ -233,10 +200,10 @@ if st.session_state.show_architecture:
         html += _file_row("📄","rag_engine.py","核心引擎","#61afef","#61afef","RAG 核心運算引擎（TextCleaner、VectorIndexer、Reranker、RateLimiter）")
 
         html += _section_header("🔄", "資料管線 (Data Pipeline)", "#98c379")
-        html += _file_row("📄","update_pipeline.py","管線協調","#98c379","#98c379","自動化更新協調器，一鍵調用爬蟲、重組與向量索引重構")
-        html += _file_row("📄","custom_threads_scraper.py","貼文爬蟲","#98c379","#98c379","Threads 貼文模擬爬取腳本，用於模擬獲取最新社群數據")
-        html += _file_row("📄","step2_extract_posts.py","資料增量","#98c379","#98c379","貼文去重與增量追加（raw_scraped_posts.csv → threads_posts.csv）")
-        html += _file_row("📄","merge_posts.py","串文重組","#98c379","#98c379","串文按 Post ID 排序重組，將單篇發言串連為對話鏈結構")
+        html += _file_row("📄","step1_collect_links.py","連結收集","#98c379","#98c379","利用 Playwright 從目標主頁漸進式滾動收集所有貼文 URL")
+        html += _file_row("📄","step2_extract_posts.py","貼文爬取","#98c379","#98c379","利用 Playwright 爬取各 URL 的主貼文與作者串文並匯出分批 CSV")
+        html += _file_row("📄","merge_posts.py","貼文合併","#98c379","#98c379","將分批的 CSV 貼文資料進行整合與去重")
+        html += _file_row("📄","process_threads_by_post.py","對話鏈重組","#98c379","#98c379","依貼文與串順序進行數值排序、文字清洗，並按 ID 拼合對話鏈")
 
         html += _section_header("📊", "資料儲存與索引 (Storage)", "#e5c07b")
         html += _file_row("💾","embeddings_index.pkl","向量索引","#e5c07b","#e5c07b","輕量化向量序列化檔，排除 PyTorch 模型權重（僅 1.81 MB）")
@@ -254,51 +221,48 @@ if st.session_state.show_architecture:
 
     # ── TAB 2: Data Pipeline Flow ──────────────────────────────────────────────
     with tab_pipe:
-        st.markdown("#### 🔄 資料管線流程圖（Data Pipeline）")
-        st.caption("新爬取的 Threads 貼文如何一步步被清洗、對話重組並存入向量索引：")
+        st.markdown("#### 🔄 資料取得管線流程圖（Data Acquisition Pipeline）")
+        st.caption("如何從社群平台收集連結、爬取內容並整合成完整的對話鏈知識庫：")
 
         pipe_html = (
             '<div style="background:#1a1d25;border:1px solid #3e4451;border-radius:12px;padding:20px;">'
         )
         pipe_html += (
             '<div style="color:#98c379;font-weight:700;margin-bottom:14px;font-size:0.88rem;">'
-            '📦 第一階段：資料爬取 → 清洗 → 重組</div>'
+            '📦 第一階段：連結與內容爬取</div>'
         )
         pipe_html += _pipe_row(
-            _pipe_box("#98c379","🕷️","custom_threads_scraper",".py"),
-            _arrow("爬取"),
-            _pipe_box("#e5c07b","📄","raw_scraped_posts",".csv"),
-            _arrow("去重追加"),
-            _pipe_box("#98c379","🔍","step2_extract_posts",".py"),
-            _arrow("寫入"),
-            _pipe_box("#e5c07b","📊","threads_posts",".csv"),
-        )
-        pipe_html += _pipe_row(
-            _pipe_box("#98c379","🔗","merge_posts",".py"),
-            _arrow("對話鏈重組"),
-            _pipe_box("#e5c07b","📊","combined_threads_posts",".csv"),
+            _pipe_box("#98c379","🕸️","step1_collect_links",".py"),
+            _arrow("收集網址"),
+            _pipe_box("#e5c07b","📊","threads_post_links",".csv"),
+            _arrow("批次爬取"),
+            _pipe_box("#98c379","🕷️","step2_extract_posts",".py"),
+            _arrow("輸出批次"),
+            _pipe_box("#e5c07b","📄","threads_posts-XX",".csv"),
         )
         pipe_html += (
             '<div style="color:#8e44ad;font-weight:700;margin:16px 0 12px;font-size:0.88rem;'
             'border-top:1px solid #3e4451;padding-top:14px;">'
-            '🧮 第二階段：向量化重索引</div>'
+            '🗂️ 第二階段：貼文合併與對話鏈重組</div>'
         )
         pipe_html += _pipe_row(
-            _pipe_box("#8e44ad","⚙️","update_pipeline",".py"),
-            _arrow("清洗+編碼"),
-            _pipe_box("#e5c07b","💾","embeddings_index",".pkl"),
-            _arrow("記錄狀態"),
-            _pipe_box("#e5c07b","📋","pipeline_metadata",".json"),
+            _pipe_box("#98c379","🔗","merge_posts",".py"),
+            _arrow("整併去重"),
+            _pipe_box("#e5c07b","📊","threads_posts",".csv"),
+            _arrow("對話重組"),
+            _pipe_box("#8e44ad","⚙","process_threads_by_post",".py"),
+            _arrow("輸出"),
+            _pipe_box("#e5c07b","📊","combined_threads_posts",".csv"),
         )
         pipe_html += "</div>"
         st.markdown(pipe_html, unsafe_allow_html=True)
 
         st.markdown("""
-**更新管線四步驟說明：**
-1. 🕷️ **增量爬取**：`custom_threads_scraper.py` 模擬拉取最新的 Threads 貼文資料。
-2. 🔍 **去重追加**：`step2_extract_posts.py` 比對 Post ID，僅追加全新貼文，防止重複。
-3. 🔗 **對話鏈重組**：`merge_posts.py` 將多篇串文按 thread_id 拼合為完整上下文，避免語意切碎。
-4. 🧮 **清洗與向量化**：`update_pipeline.py` 過濾非中文文本，呼叫 SentenceTransformer 重算特徵並序列化索引。
+**資料管線步驟說明：**
+1. 🕸️ **連結收集**：`step1_collect_links.py` 使用 Playwright 從目標主頁漸進式滾動收集所有貼文 URL 並匯出至 `threads_post_links.csv`。
+2. 🕷️ **貼文爬取**：`step2_extract_posts.py` 依據收集到的 URL，逐篇爬取主貼文與作者的後續串文，輸出為分批的 `threads_posts-XX.csv` 檔案。
+3. 🔗 **貼文合併**：`merge_posts.py` 整合並去重所有的分批 CSV 檔案，輸出為完整的 `threads_posts.csv`。
+4. ⚙️ **對話鏈重組**：`process_threads_by_post.py` 依貼文編號與串文順序進行排序、文字清洗，按 Post ID 拼合為連貫上下文的 `combined_threads_posts.csv`。
         """)
 
     # ── TAB 3: RAG Dual-Stage Retrieval ───────────────────────────────────────
