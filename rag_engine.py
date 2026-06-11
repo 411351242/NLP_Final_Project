@@ -18,7 +18,7 @@ class TextCleaner:
         3. Removing Unicode control chars and object replacements (\ufffc / ￼ and \u200b).
         4. Removing URLs and hyperlinks.
         5. Removing hashtags (#hashtag) and mentions (@username).
-        6. Stripping trailing/internal platform noise ('(續', '（續', 'Read more').
+        6. Stripping trailing/internal platform noise ('(續', '（續', 'Read more', 'Reply to make_investment_easy...').
         7. Adding spacing between Chinese characters and English letters/digits.
         8. Collapsing multiple spaces into a single space.
         """
@@ -39,6 +39,7 @@ class TextCleaner:
         cleaned = re.sub(r'@\S+', '', cleaned)
         
         # 5. Platforms suffixes and trailing tags
+        cleaned = re.sub(r'(?i)reply\s+to\s+make_investment_easy\.*', '', cleaned)
         cleaned = re.sub(r'\(續\s*$', '', cleaned)
         cleaned = re.sub(r'（續\s*$', '', cleaned)
         cleaned = re.sub(r'Read more\s*$', '', cleaned)

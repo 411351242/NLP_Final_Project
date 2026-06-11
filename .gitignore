@@ -6,3 +6,4 @@ __pycache__/
 .config.json
 cookies.json
 raw_scraped_posts.csv
+*.md
