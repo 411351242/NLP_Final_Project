@@ -3,7 +3,5 @@ __pycache__/
 *.pyc
 .env
 .ipynb_checkpoints/
-raw_scraped_posts.csv
-*cookie*
-cookies.txt
-config.json
+.config.json
+cookies.json
