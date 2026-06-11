@@ -5,3 +5,4 @@ __pycache__/
 .ipynb_checkpoints/
 .config.json
 cookies.json
+raw_scraped_posts.csv

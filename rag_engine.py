@@ -7,10 +7,6 @@ import time
 from sentence_transformers import SentenceTransformer, CrossEncoder
 from sklearn.metrics.pairwise import cosine_similarity
 import google.generativeai as genai
-from langdetect import detect, DetectorFactory
-
-# Pin the seed for consistent language detection results
-DetectorFactory.seed = 0
 
 class TextCleaner:
     @staticmethod
@@ -58,25 +54,6 @@ class TextCleaner:
         cleaned = re.sub(r'\s+', ' ', cleaned)
         
         return cleaned.strip()
-
-    @staticmethod
-    def filter_by_language(df, text_col='文字內容', target_langs=['zh-tw', 'zh-cn', 'cn']):
-        """
-        Filters a DataFrame to only keep text rows belonging to target languages using langdetect.
-        """
-        def safe_detect(text):
-            if not isinstance(text, str) or not text.strip():
-                return 'unknown'
-            try:
-                return detect(text)
-            except:
-                return 'unknown'
-        
-        df = df.dropna(subset=[text_col]).copy()
-        df['detected_lang'] = df[text_col].apply(safe_detect)
-        # Keep if detected language matches or starts with target prefix (e.g. 'zh')
-        filtered_df = df[df['detected_lang'].apply(lambda x: any(x.startswith(lang[:2]) for lang in target_langs))].copy()
-        return filtered_df
 
     @staticmethod
     def split_text_with_overlap(text, chunk_size=600, overlap=150):

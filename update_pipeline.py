@@ -35,27 +35,24 @@ def main():
     
     print(f"Loaded {len(df_posts)} combined posts and {len(df_threads)} raw threads.")
     
-    # 3. Clean and filter language using TextCleaner
+    # 3. Clean texts and drop empty results using TextCleaner
     # Clean texts
     df_posts = df_posts.dropna(subset=['文字內容']).copy()
     df_posts['cleaned_text'] = df_posts['文字內容'].apply(TextCleaner.clean_text)
+    df_posts = df_posts[df_posts['cleaned_text'].str.strip() != ''].copy()
     
     df_threads = df_threads.dropna(subset=['文字內容']).copy()
     df_threads['cleaned_text'] = df_threads['文字內容'].apply(TextCleaner.clean_text)
+    df_threads = df_threads[df_threads['cleaned_text'].str.strip() != ''].copy()
     
-    # Filter language (Keep only Chinese threads/posts)
-    print("Filtering language (langdetect)...")
-    df_posts_filtered = TextCleaner.filter_by_language(df_posts, 'cleaned_text')
-    df_threads_filtered = TextCleaner.filter_by_language(df_threads, 'cleaned_text')
-    
-    print(f"Language filtering finished:")
-    print(f"- Combined posts: {len(df_posts)} -> {len(df_posts_filtered)}")
-    print(f"- Chunked threads: {len(df_threads)} -> {len(df_threads_filtered)}")
+    print(f"Text cleaning finished:")
+    print(f"- Combined posts: {len(df_posts)} rows")
+    print(f"- Chunked threads: {len(df_threads)} rows")
     
     # 4. Fit the VectorIndexer on combined posts
     print("Re-indexing vector embeddings...")
     indexer = VectorIndexer()
-    indexer.fit(df_posts_filtered['cleaned_text'], post_ids=df_posts_filtered['貼文編號'])
+    indexer.fit(df_posts['cleaned_text'], post_ids=df_posts['貼文編號'])
     
     # 5. Serialize the VectorIndexer to disk
     indexer_pkl = "embeddings_index.pkl"
@@ -66,8 +63,8 @@ def main():
     # 6. Save metadata for Streamlit sidebar
     metadata = {
         "last_updated": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "total_posts": len(df_posts_filtered),
-        "total_threads": len(df_threads_filtered)
+        "total_posts": len(df_posts),
+        "total_threads": len(df_threads)
     }
     
     metadata_json = "pipeline_metadata.json"

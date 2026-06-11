@@ -102,12 +102,11 @@
 
 ---
 
-### 步驟 4：文字清洗、語言過濾與向量化建庫（`update_pipeline.py` + `rag_engine.py`）
+### 步驟 4：文字清洗與向量化建庫（`update_pipeline.py` + `rag_engine.py`）
 
 **使用套件**：
-- `pandas`（`read_csv`、`dropna`、`apply`）
+- `pandas`（`read_csv` swap `dropna` / `apply`）
 - `re`（正規表達式，用於清洗規則）
-- `langdetect`（`detect` 函數）
 - `sentence_transformers`（`SentenceTransformer.encode()`）
 - `pickle`（`pickle.dump()`）
 - `json`（`json.dump()`）
@@ -129,27 +128,17 @@
 | 中英文間距補齊 | 在中文字與英文字母之間自動補上空格，提升 AI 理解品質 |
 | 多餘空白壓縮 | 將連續多個空格縮減為一個空格 |
 
-#### B. 語言過濾（`TextCleaner.filter_by_language()`）
-
-社群平台上充斥著英文廣告和垃圾內容。使用 `langdetect` 套件的 `detect()` 函數，對每篇貼文進行**語言自動偵測**：
-
-- 保留語系判定為「中文（`zh-tw`、`zh-cn`）」的貼文
-- 過濾掉英文、日文、韓文等非目標語言內容
-- 使用 `DetectorFactory.seed = 0` 固定隨機種子，確保每次偵測結果一致
-
-**過濾效果**：715 篇原始串文 → 過濾後保留 **297 篇**高品質繁體中文貼文
-
-#### C. 語意向量化（`VectorIndexer.fit()`）
+#### B. 語意向量化（`VectorIndexer.fit()`）
 
 使用 `sentence_transformers` 套件的 `SentenceTransformer` 類別，載入多語言預訓練模型 **`paraphrase-multilingual-MiniLM-L12-v2`**：
 
 - 呼叫 `SentenceTransformer.encode()` 將每篇貼文的文字內容**轉換成一組數字（向量）**
 - 向量代表這篇文章的「語意位置」，語意相近的文章，向量數值也會很接近
-- 這 297 組向量就是「知識庫的索引」，存入記憶體準備下一步儲存
+- 這 738 組向量就是「知識庫的索引」，存入記憶體準備下一步儲存
 
 > 💡 **比喻**：就像圖書館為每本書製作索引卡，讓之後的查找更快速。
 
-#### D. 索引序列化與中繼資料儲存
+#### C. 索引序列化與中繼資料儲存
 
 - 用 `pickle.dump()` 將向量索引（`VectorIndexer` 物件）序列化存成 **`embeddings_index.pkl`**（僅 1.81 MB，已透過自訂 `__getstate__` 排除 PyTorch 模型權重，比原始的 459 MB 小 **250 倍**）
 - 用 `json.dump()` 記錄本次更新的時間戳記與統計數字，存成 **`pipeline_metadata.json`**，供網頁介面的「系統狀態」欄位即時顯示
@@ -193,7 +182,7 @@
 
 1. 用 `pickle.load()` 從磁碟載入預先建好的 `embeddings_index.pkl`
 2. 使用 `SentenceTransformer.encode()` 將**使用者的提問**也轉換成一組向量
-3. 用 `sklearn` 的 `cosine_similarity()` 計算**使用者問題向量**與**297 篇貼文向量**的餘弦相似度（數值越接近 1，代表語意越相近）
+3. 用 `sklearn` 的 `cosine_similarity()` 計算**使用者問題向量**與**738 篇貼文向量**的餘弦相似度（數值越接近 1，代表語意越相近）
 4. 用 `numpy.argsort()` 排序，取出相似度最高的 **Top-10 候選貼文**
 
 > 💡 **比喻**：就像在圖書館用關鍵字找書，先把可能相關的 10 本書都拿出來。
@@ -312,8 +301,8 @@
 
 | 指標 | 數值 | 說明 |
 |---|---|---|
-| 📚 知識庫貼文數 | **297 篇** | 語言過濾後的高品質繁中貼文 |
-| 📝 原始串文數 | **715 串** | 過濾前的原始對話串總數 |
+| 📚 知識庫貼文數 | **738 篇** | 最終整併後的高品質繁中與雙語貼文 |
+| 📝 原始串文數 | **1693 串** | 經過去重處理後的原始單篇貼文總數 |
 | 💾 索引檔大小 | **1.81 MB** | 優化後縮減 **250 倍**（原始為 459 MB）|
 | ⏱️ 回答延遲 | **5–8 秒** | 符合 PRD 產品目標 |
 | 🎯 精篩貼文數 | Top-10 → Top-3 | 相關性更高，Token 消耗減少 70% |
@@ -327,13 +316,13 @@
 | 檔案 | 類型 | 角色 | 核心套件 |
 |---|---|---|---|
 | `app.py` | Python | 網頁介面主程式 | `streamlit` |
-| `rag_engine.py` | Python | RAG 核心引擎（清洗 / 向量 / 重排序 / 限速）| `sentence_transformers`、`langdetect`、`sklearn`、`google.generativeai` |
+| `rag_engine.py` | Python | RAG 核心引擎（清洗 / 向量 / 重排序 / 限速）| `sentence_transformers`、`sklearn`、`google.generativeai` |
 | `update_pipeline.py` | Python | 自動更新管線協調器 | `pandas`、`subprocess`、`pickle`、`json` |
 | `custom_threads_scraper.py` | Python | 貼文爬蟲（模擬）| `pandas` |
 | `step2_extract_posts.py` | Python | 去重與增量追加 | `pandas` |
 | `merge_posts.py` | Python | 串文對話鏈重組 | `pandas`、`re` |
-| `combined_threads_posts.csv` | 資料 | 最終整併知識庫（297 篇）| — |
-| `threads_posts.csv` | 資料 | 原始單篇貼文集（715 串）| — |
+| `combined_threads_posts.csv` | 資料 | 最終整併知識庫（738 篇）| — |
+| `threads_posts.csv` | 資料 | 原始單篇貼文集（1693 串）| — |
 | `embeddings_index.pkl` | 資料 | 向量索引序列化檔 | `pickle` |
 | `pipeline_metadata.json` | 資料 | 管線執行狀態與統計 | `json` |
 | `requirements.txt` | 配置 | Streamlit Cloud 部署套件清單 | — |

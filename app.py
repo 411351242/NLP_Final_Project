@@ -73,7 +73,7 @@ if st.sidebar.button("🗺️ 查看系統架構與 RAG 流程圖", use_containe
     st.session_state.show_architecture = not st.session_state.show_architecture
 
 st.sidebar.subheader("系統狀態")
-st.sidebar.markdown(f"**📚 總貼文數（已過濾語系）**: `{metadata.get('total_posts', 0)}` 篇")
+st.sidebar.markdown(f"**📚 總貼文數（知識庫）**: `{metadata.get('total_posts', 0)}` 篇")
 st.sidebar.markdown(f"**💬 總串文數（原始拆分）**: `{metadata.get('total_threads', 0)}` 條")
 st.sidebar.markdown(f"**🕒 知識庫更新時間**: `{metadata.get('last_updated', '未知')}`")
 

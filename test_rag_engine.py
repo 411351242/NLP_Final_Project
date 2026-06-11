@@ -14,19 +14,6 @@ class TestTextCleaner(unittest.TestCase):
         cleaned = TextCleaner.clean_text(text)
         self.assertEqual(cleaned, "日圓 Carry Trade 套利交易")
 
-    def test_filter_by_language(self):
-        data = {
-            "文字內容": [
-                "这是一个关于日元套利交易的分析，我们应该关注其潜在的风险溢额和市场波动。",
-                "This is an English post.",
-                "投资银行交易员通常需要具备扎实的财务分析能力和敏锐的市场洞察力。"
-            ]
-        }
-        df = pd.DataFrame(data)
-        filtered = TextCleaner.filter_by_language(df, text_col="文字內容", target_langs=["zh", "cn"])
-        self.assertEqual(len(filtered), 2)
-        self.assertIn("这是一个关于日元套利交易的分析，我们应该关注其潜在的风险溢额和市场波动。", filtered["文字內容"].values)
-
     def test_split_text_with_overlap(self):
         text = "abcdefghij"
         chunks = TextCleaner.split_text_with_overlap(text, chunk_size=5, overlap=2)
