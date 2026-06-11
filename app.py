@@ -79,6 +79,12 @@ st.sidebar.markdown(f"**🕒 知識庫更新時間**: `{metadata.get('last_updat
 
 st.sidebar.divider()
 
+if st.sidebar.button("🧹 清除對話紀錄", use_container_width=True):
+    st.session_state.messages = []
+    st.rerun()
+
+st.sidebar.divider()
+
 # Hyperparameter Controls
 st.sidebar.subheader("檢索與生成參數")
 temperature = st.sidebar.slider("LLM 溫度 (Temperature)", min_value=0.0, max_value=1.0, value=0.2, step=0.05,
@@ -346,6 +352,10 @@ else:
     if api_key:
         generator = GeminiGenerator(api_key=api_key)
 
+    # Initialize clicked prompt in session state
+    if "clicked_prompt" not in st.session_state:
+        st.session_state.clicked_prompt = None
+
     # Render Chat History
     for msg in st.session_state.messages:
         with st.chat_message(msg["role"]):
@@ -358,8 +368,40 @@ else:
                         st.markdown(f"**[{i+1}] 貼文編號: `{src['post_id']}` (重排序分數: `{src[score_type]:.4f}`)**")
                         st.text_area(f"貼文內容 {i+1}", value=src['document'], height=120, disabled=True, label_visibility="collapsed")
 
+    # Render default questions if no messages yet
+    if len(st.session_state.messages) == 0:
+        st.markdown("### 💡 推薦預設問題")
+        
+        # Grid of default questions
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("📈 什麼是資產估值的核心邏輯？如何傳導到股債？", use_container_width=True):
+                st.session_state.clicked_prompt = "什麼是資產估值的核心邏輯？如何傳導到股債？"
+                st.rerun()
+            if st.button("💰 新鮮人月薪 30K 該如何理財翻身與配置？", use_container_width=True):
+                st.session_state.clicked_prompt = "新鮮人月薪 30K 該如何理財翻身與配置？"
+                st.rerun()
+        with col2:
+            if st.button("💼 投行分析師如何看待職涯轉型與人生隨機性？", use_container_width=True):
+                st.session_state.clicked_prompt = "投行分析師如何看待職涯轉型與人生隨機性？"
+                st.rerun()
+            if st.button("🛢️ 俄烏戰爭中如何操作汽油「裂解價差套利」？", use_container_width=True):
+                st.session_state.clicked_prompt = "俄烏戰爭中如何操作汽油「裂解價差套利」？"
+                st.rerun()
+        
+        if st.button("🌏 比較澳洲、新加坡與台灣的生活與孩子成長環境？", use_container_width=True):
+            st.session_state.clicked_prompt = "比較澳洲、新加坡與台灣的生活與孩子成長環境？"
+            st.rerun()
+
     # Accept User Input
-    if user_query := st.chat_input("請輸入您的財經或職涯問題..."):
+    user_query = st.chat_input("請輸入您的財經或職涯問題...")
+    
+    # If a default question button was clicked, override user_query
+    if st.session_state.clicked_prompt:
+        user_query = st.session_state.clicked_prompt
+        st.session_state.clicked_prompt = None
+
+    if user_query:
         # Display user message
         with st.chat_message("user"):
             st.markdown(user_query)
