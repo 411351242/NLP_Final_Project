@@ -243,16 +243,23 @@ if st.session_state.show_architecture:
         pipe_html += (
             '<div style="color:#8e44ad;font-weight:700;margin:16px 0 12px;font-size:0.88rem;'
             'border-top:1px solid #3e4451;padding-top:14px;">'
-            '🗂️ 第二階段：貼文合併與對話鏈重組</div>'
+            '🗂️ 第二階段：貼文合併、對話鏈重組與向量索引建庫</div>'
         )
         pipe_html += _pipe_row(
             _pipe_box("#98c379","🔗","merge_posts",".py"),
             _arrow("整併去重"),
             _pipe_box("#e5c07b","📊","threads_posts",".csv"),
-            _arrow("對話重組"),
-            _pipe_box("#8e44ad","⚙","process_threads_by_post",".py"),
-            _arrow("輸出"),
+            _arrow("重組+建庫"),
+            _pipe_box("#8e44ad","⚙️","process_threads_by_post",".py"),
+            _arrow("對話鏈"),
             _pipe_box("#e5c07b","📊","combined_threads_posts",".csv"),
+        )
+        pipe_html += _pipe_row(
+            _pipe_box("#8e44ad","⚙️","process_threads_by_post",".py"),
+            _arrow("計算向量"),
+            _pipe_box("#e5c07b","💾","embeddings_index",".pkl"),
+            _arrow("記錄狀態"),
+            _pipe_box("#e5c07b","📋","pipeline_metadata",".json"),
         )
         pipe_html += "</div>"
         st.markdown(pipe_html, unsafe_allow_html=True)
@@ -262,7 +269,7 @@ if st.session_state.show_architecture:
 1. 🕸️ **連結收集**：`step1_collect_links.py` 使用 Playwright 從目標主頁漸進式滾動收集所有貼文 URL 並匯出至 `threads_post_links.csv`。
 2. 🕷️ **貼文爬取**：`step2_extract_posts.py` 依據收集到的 URL，逐篇爬取主貼文與作者的後續串文，輸出為分批的 `threads_posts-XX.csv` 檔案。
 3. 🔗 **貼文合併**：`merge_posts.py` 整合並去重所有的分批 CSV 檔案，輸出為完整的 `threads_posts.csv`。
-4. ⚙️ **對話鏈重組**：`process_threads_by_post.py` 依貼文編號與串文順序進行排序、文字清洗，按 Post ID 拼合為連貫上下文的 `combined_threads_posts.csv`。
+4. ⚙️ **重組與建庫**：`process_threads_by_post.py` 依貼文編號與串順序進行排序、文字清洗，按 Post ID 拼合對話鏈並輸出 `combined_threads_posts.csv`；同時在此步驟呼叫 TextCleaner 與 VectorIndexer 進行文字清理、重組向量索引並儲存至 `embeddings_index.pkl`，最後寫入執行狀態中繼資料至 `pipeline_metadata.json`。
         """)
 
     # ── TAB 3: RAG Dual-Stage Retrieval ───────────────────────────────────────

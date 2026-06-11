@@ -2,6 +2,10 @@ import os
 import re
 import pandas as pd
 import argparse
+import pickle
+import json
+from datetime import datetime
+from rag_engine import TextCleaner, VectorIndexer
 
 def process_csv_threads(csv_path, output_path):
     print(f"正在讀取 {csv_path}...")
@@ -58,6 +62,31 @@ def process_csv_threads(csv_path, output_path):
     # 匯出合併後的資料
     combined.to_csv(output_path, index=False, encoding='utf-8-sig')
     print(f"合併完成，共 {len(combined)} 篇貼文。已存檔至 {output_path}")
+
+    # 執行語意清洗與重建向量索引
+    print("正在執行語意清洗與重建向量索引...")
+    combined['cleaned_text'] = combined['文字內容'].apply(TextCleaner.clean_text)
+    combined = combined[combined['cleaned_text'].str.strip() != ''].copy()
+    
+    indexer = VectorIndexer()
+    indexer.fit(combined['cleaned_text'], post_ids=combined['貼文編號'])
+    
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    indexer_pkl = os.path.join(script_dir, "embeddings_index.pkl")
+    with open(indexer_pkl, "wb") as f:
+        pickle.dump(indexer, f)
+    print(f"向量索引已成功序列化並儲存至：{indexer_pkl}")
+    
+    # 儲存中繼資料
+    metadata = {
+        "last_updated": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "total_posts": len(combined),
+        "total_threads": len(df)
+    }
+    metadata_json = os.path.join(script_dir, "pipeline_metadata.json")
+    with open(metadata_json, "w", encoding="utf-8") as f:
+        json.dump(metadata, f, ensure_ascii=False, indent=4)
+    print(f"中繼資料已儲存至：{metadata_json}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="合併 threads_posts.csv 中的串文為單一貼文")
