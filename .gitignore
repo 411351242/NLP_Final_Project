@@ -18,3 +18,4 @@ __pycache__/
 .DS_Store
 Thumbs.db
 raw_scraped_posts.csv
+archive/
